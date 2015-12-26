@@ -162,14 +162,14 @@ test    &lt;- training[-inTrain,]</code></pre>
 <pre class="r"><code>table(preds,test$classe)</code></pre>
 <pre><code>##      
 ## preds    A    B    C    D    E
-##     A 2785   10    0    0    0
-##     B    2 1881   10    0    0
-##     C    2    4 1695   16    1
-##     D    0    3    6 1592    4
-##     E    1    0    0    0 1798</code></pre>
+##     A 2789    8    0    0    0
+##     B    1 1885    6    0    1
+##     C    0    2 1699   11    2
+##     D    0    3    6 1596    4
+##     E    0    0    0    1 1796</code></pre>
 <p>Result is an accuracy (as a percentage) of:</p>
 <pre class="r"><code>sum(test$classe == preds)/length(preds) * 100</code></pre>
-<pre><code>## [1] 99.39857</code></pre>
+<pre><code>## [1] 99.54128</code></pre>
 <p>This is actually a better performance than obtained from evaluation on the training set, and confirms the out of sample error is around 1%.</p>
 <div id="test-set-evaluation" class="section level3">
 <h3>Test Set Evaluation</h3>
