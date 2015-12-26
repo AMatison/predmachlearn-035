@@ -1,0 +1,96 @@
+---
+title: "Predicting Weightlifting Manner from Accelerometer Data"
+output: html_document
+---
+## Synopsis  
+This report takes a set of observations from participants engaging in weightlifting, to determine if those observations can predict the manner in which the participant performed their lifts. The observations are recordings from accelerometers attached to the participants. There were six participants, and five distinct manners (or 'classe') identified. See http://groupware.les.inf.puc-rio.br/har for further information about the study from which this data is sourced.  
+
+The results, achieved through a fairly typical Random Forest model, are very promising, with a prediction accuracy around 99%. However, there were only six participants in the study, so the model has not been evaluated against participants that were not used for model training. 
+
+```{r}
+library(caret)
+```
+# Preprocessing steps
+- Load the raw training data
+- Convert the column 'classe' to a factor with levels A,B,C,D,E
+- Omit columns containing data that's not useful for prediction. For many parameters, the values are only available for records where new_window = yes. Presumably these values might apply for the whole of that observation window. However it's not certain that's the case, and some windows don't have any such observations. These values are also not available in the final test set, so won't be useful for prediction anyway. 
+
+```{r}
+# load a local copy of the training file at https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+trainPML <- read.table("C:\\coursera\\practicalmachinelearning\\assignment\\pml-training.csv",
+                       sep=",",header=TRUE,stringsAsFactors=FALSE)
+# change 'classe' to a factor with values A,B,C,D,E
+trainPML$classe <- as.factor(trainPML$classe)
+# remove columns with NAs or blanks as these cant be inferred, nor are they present in the test data
+omit <- function(x) {
+  if (is.na(x)||(x=="")) {TRUE}
+  else FALSE
+}
+colsUsed <- apply(apply(trainPML,c(1,2),omit),2,sum) == 0
+training <- trainPML[,colsUsed]
+# and remove non variants
+training <- training[,8:60]
+```  
+- Split into training / test sets
+- A 50/50 split was chosen, largely because use of 75% of the data for training was exceeding available memory when creating the model.
+```{r}
+inTrain <- createDataPartition(y=training$classe,p=0.5,list=FALSE)
+train   <- training[inTrain,]
+test    <- training[-inTrain,]
+```
+## Fitting a model
+- First try a Random Forest model  
+-- A Random Forest model is tried first as it's generally considered to be highly accurate model. 
+-- 5 fold cross validation is used to give an initial estimate of the out of sample error. The choice of 5 for the initial  model is somewhat arbitrary, and can be refined later.
+- The model is built using all numerical parameters in the training data as predictors for the 'classe'. Obviously this excludes the data removed during pre-processing.
+-- The model is saved locally after generation as the generation time was around 30mins on the machine used.
+```{r}
+if (!file.exists('data/RFmodFit.R')) {
+  modFit <- train(classe~.,data=train,method="rf",
+                trControl=trainControl(method="cv",number=5),
+                prox=TRUE,allowParallel=TRUE)
+  save(modFit,file='data/RFmodFit.R')
+} else {
+  load('data/RFmodFit.R')
+}
+```
+### Summary of the generated model
+```{r}
+print(modFit)
+```
+Model reports an accuracy from cross validation of 98.6%, with a confusion matrix as follows:
+```{r}
+print(modFit$finalModel$confusion)
+```
+So it's anticipated the out of sample error will be around 1-2%. Given this is a very good error rate, and likely to be entirely adequate, no further refinement of the model is performed. 
+
+## Evaluation
+The model is tested against the held out test data to get a better estimation of the out of sample error. 
+```{r}
+preds <- predict(modFit,test)
+table(preds,test$classe)
+```
+Result is an accuracy (as a percentage) of:
+```{r}
+sum(test$classe == preds)/length(preds) * 100
+```
+This is actually a better performance than obtained from evaluation on the training set, and confirms the out of sample error is around 1%.
+  
+### Test Set Evaluation
+In this section, the predictions against the test set for the assignment are calculated. 
+```{r}
+# load the test set from a local file. Original data is available at https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+testPML <- read.table("C:\\coursera\\practicalmachinelearning\\assignment\\pml-testing.csv",
+                       sep=",",header=TRUE,stringsAsFactors=FALSE)
+# Then pre-process the test file exactly as previously performed for the training data
+testing <- testPML[,colsUsed]
+# and remove non variants
+testing <- testing[,8:60]
+testPreds <- predict(modFit,testing)
+as.character(testPreds)
+```
+  
+## Summary
+The model provides a highly accurate prediction of the weightlifting classe for the participants in the study. The Random Forest model produced adequate results, and so no further models were trialed.
+
+Further study should look at how well the model generalises between participants, perhaps by performing a variant of k-fold cross validation, using all of the observations for a single participant for each cross validation step.

@@ -1,0 +1,3 @@
+# ignore R files and data
+/.R*
+/data
